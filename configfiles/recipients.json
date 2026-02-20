@@ -1,0 +1,9 @@
+{
+  "recipients": [
+    "mnellutla@deloitte.com",
+    "tandmounika@deloitte.com",
+    "byasodakumar@deloitte.com"
+  ],
+  "sender": "rajdasari@deloitte.com",
+  "subject_template": "Load Test Summary Report - {date}"
+}
