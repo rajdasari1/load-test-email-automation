@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 class EmailSender:
     def __init__(self, config_path="config/recipients.json"):
         load_dotenv("config/.env")
-        self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        self.smtp_server = os.getenv("SMTP_SERVER", "rajdasari@deloitte.com")
         # Handle empty SMTP_PORT
         smtp_port_str = os.getenv("SMTP_PORT", "587")
         try:
