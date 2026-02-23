@@ -22,11 +22,40 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install python-dotenv
-      - name: Create output directory
-        run: mkdir -p output
+      - name: Create necessary directories
+        run: |
+          mkdir -p config
+          mkdir -p csv_files
+          mkdir -p output
+          mkdir -p templates
+      - name: Create sample CSV if not exists
+        run: |
+          if [ ! -f csv_files/load_test_results.csv ]; then
+            cat > csv_files/load_test_results.csv << 'EOF'
+          test_name,endpoint,response_time_ms,status_code,requests_per_second,timestamp
+          Login Test,/api/login,245,200,100,2026-02-20 09:15:00
+          Product Search,/api/search,312,200,150,2026-02-20 09:16:00
+          Checkout,/api/checkout,567,200,80,2026-02-20 09:17:00
+          Payment Processing,/api/payment,890,200,50,2026-02-20 09:18:00
+          EOF
+          fi
+      - name: Create recipients config if not exists
+        run: |
+          if [ ! -f config/recipients.json ]; then
+            cat > config/recipients.json << 'EOF'
+          {
+            "recipients": ["performance-team@company.com"],
+            "sender": "automation@company.com",
+            "subject_template": "Load Test Summary Report - {date}"
+          }
+          EOF
+          fi
       - name: Generate email from CSV
         run: |
+          echo "Generating email from CSV..."
           python scripts/generate_email.py
+          echo "Email generation completed"
+          ls -la output/
       - name: Create environment file
         env:
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
@@ -42,14 +71,22 @@ jobs:
           SENDER_PASSWORD=$SENDER_PASSWORD
           SMTP_USE_TLS=true
           EOF
+          echo "Environment file created"
       - name: Send email
         continue-on-error: true
         run: |
+          echo "Sending email..."
           python scripts/send_email.py
+          echo "Email send step completed"
+      - name: List output directory
+        if: always()
+        run: |
+          echo "Contents of output directory:"
+          ls -la output/ || echo "Output directory doesn't exist"
       - name: Upload email artifact
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: generated-email
-          path: output/email_summary.html
+          path: output/
           retention-days: 30
