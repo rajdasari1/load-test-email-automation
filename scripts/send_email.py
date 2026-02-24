@@ -1,131 +1,102 @@
-#!/usr/bin/env python3
-"""
-Email Sender Module
-Sends generated load test summary emails via SMTP
-"""
- 
 import smtplib
 import json
 import os
+import sys
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from dotenv import load_dotenv
  
-class EmailSender:
-    def __init__(self, config_path="config/recipients.json"):
-        load_dotenv("config/.env")
-        self.SMTP_HOST = os.getenv("SMTP_HOST", "smtp.office365.com")
-        # Handle empty SMTP_PORT
-        smtp_port_str = os.getenv("SMTP_PORT", "587")
-        try:
-            self.smtp_port = int(smtp_port_str) if smtp_port_str else 587
-        except ValueError:
-            print(f"Warning: Invalid SMTP_PORT '{smtp_port_str}', using default 587")
-            self.smtp_port = 587
-        self.sender_email = os.getenv("SENDER_EMAIL")
-        self.sender_password = os.getenv("SENDER_PASSWORD")
-        self.use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
-        # Load config - ALWAYS initialize this
-        self.config = self.load_recipients_config(config_path)
-        # Validate credentials
-        if not self.sender_email or not self.sender_password:
-            print("⚠️  WARNING: Email credentials not configured")
-            print(f"   SENDER_EMAIL: {'✓ Set' if self.sender_email else '✗ Not set'}")
-            print(f"   SENDER_PASSWORD: {'✓ Set' if self.sender_password else '✗ Not set'}")
-    def load_recipients_config(self, config_path):
-        """Load recipients configuration"""
-        try:
-            if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
-                    return json.load(f)
-            else:
-                print(f"⚠️  Config file not found: {config_path}")
-                return {'recipients': []}
-        except Exception as e:
-            print(f"✗ Error loading config: {str(e)}")
-            return {'recipients': []}
-    def send_email(self, recipient_list, subject, body_html):
-        """
-        Send email to multiple recipients
-        Args:
-            recipient_list: List of email addresses
-            subject: Email subject
-            body_html: HTML formatted email body
-        """
-        # Check if credentials are set
-        if not self.sender_email or not self.sender_password:
-            print("⚠️  Skipping email send: email credentials not configured")
-            print("   Please set SENDER_EMAIL and SENDER_PASSWORD in GitHub Secrets")
-            return False
-        if not recipient_list:
-            print("⚠️  Skipping email send: no recipients configured")
-            return False
-        try:
-            print(f"📧 Sending email to {len(recipient_list)} recipient(s)...")
-            # Create message
-            message = MIMEMultipart("alternative")
-            message["Subject"] = subject
-            message["From"] = self.sender_email
-            message["To"] = ", ".join(recipient_list)
-            # Attach HTML content
-            html_part = MIMEText(body_html, "html")
-            message.attach(html_part)
-            # Send email
-            print(f"🔗 Connecting to {self.SMTP_HOST}:{self.smtp_port}...")
-            with smtplib.SMTP(self.SMTP_HOST, self.smtp_port) as server:
-                if self.use_tls:
-                    print("🔐 Starting TLS encryption...")
-                    server.starttls()
-                print("🔑 Authenticating...")
-                server.login(self.sender_email, self.sender_password)
-                print("📤 Sending message...")
-                server.sendmail(self.sender_email, recipient_list, message.as_string())
-            print(f"✓ Email sent successfully to {len(recipient_list)} recipient(s)")
-            for recipient in recipient_list:
-                print(f"  ✓ {recipient}")
-            return True
-        except smtplib.SMTPAuthenticationError as e:
-            print(f"✗ Authentication failed: {str(e)}")
-            print("   Check SENDER_EMAIL and SENDER_PASSWORD are correct")
-            return False
-        except smtplib.SMTPException as e:
-            print(f"✗ SMTP error: {str(e)}")
-            return False
-        except Exception as e:
-            print(f"✗ Error sending email: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return False
+def load_config():
+    """Load configuration from config.json"""
+    try:
+        with open('config.json', 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading config.json: {e}")
+        return {}
  
-def main():
+def send_email(email_body, recipient_list, subject):
+    """
+    Send email via SMTP
+    """
+    # Get credentials from environment variables
+    sender_email = os.getenv('SENDER_EMAIL')
+    sender_password = os.getenv('SENDER_PASSWORD')
+    smtp_host = os.getenv('SMTP_HOST')
+    smtp_port = os.getenv('SMTP_PORT', '587')
+    # Load config for fallback values
+    config = load_config()
+    # Use environment variables, fallback to config
+    if not smtp_host:
+        smtp_host = config.get('smtp_host')
+    if not smtp_port:
+        smtp_port = config.get('smtp_port', 587)
+    # Validate credentials
     print("=" * 60)
     print("Email Sender")
     print("=" * 60)
+    print(f"\n1. Recipients: {recipient_list}")
+    print(f"2. Subject: {subject}")
+    print(f"3. Email body size: {len(email_body)} bytes")
+    print(f"4. SMTP Host: {smtp_host}")
+    print(f"5. SMTP Port: {smtp_port}")
+    print("\n" + "=" * 60)
+    # Check if all required variables are set
+    if not sender_email:
+        print("❌ ERROR: SENDER_EMAIL not set")
+        return False
+    if not sender_password:
+        print("❌ ERROR: SENDER_PASSWORD not set")
+        return False
+    if not smtp_host:
+        print("❌ ERROR: SMTP_HOST not set")
+        return False
     try:
-        sender = EmailSender()
-        recipients = sender.config.get('recipients', [])
-        if not recipients:
-            print("\n⚠️  No recipients configured in config/recipients.json")
-            print("   Email sending skipped")
-            return
-        subject = "Load Test Summary Report"
-        # Read generated email
-        if not os.path.exists("output/email_summary.html"):
-            print("\n✗ Error: output/email_summary.html not found")
-            print("   Run email generation first")
-            return
-        with open("output/email_summary.html", 'r') as f:
-            body = f.read()
-        print(f"\n1. Recipients: {recipients}")
-        print(f"2. Subject: {subject}")
-        print(f"3. Email body size: {len(body)} bytes")
-        print("\n" + "=" * 60)
-        sender.send_email(recipients, subject, body)
-        print("=" * 60)
+        # Convert port to integer
+        smtp_port = int(smtp_port)
+        # Create message
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
+        message["From"] = sender_email
+        message["To"] = ", ".join(recipient_list)
+        # Attach HTML content
+        part = MIMEText(email_body, "html")
+        message.attach(part)
+        print(f"\n📧 Sending email to {len(recipient_list)} recipient(s)...")
+        print(f"🔗 Connecting to {smtp_host}:{smtp_port}...")
+        # Connect to SMTP server
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+        print(f"🔐 Starting TLS encryption...")
+        server.starttls()
+        print(f"🔑 Authenticating with sender email...")
+        server.login(sender_email, sender_password)
+        print(f"✉️  Sending email...")
+        server.sendmail(sender_email, recipient_list, message.as_string())
+        server.quit()
+        print(f"\n✅ Email sent successfully to: {', '.join(recipient_list)}")
+        return True
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"\n❌ SMTP Authentication Error: {e}")
+        print("   → Check SENDER_EMAIL and SENDER_PASSWORD")
+        return False
+    except smtplib.SMTPException as e:
+        print(f"\n❌ SMTP error: {e}")
+        return False
+    except ConnectionError as e:
+        print(f"\n❌ Connection error: {e}")
+        print(f"   → Check SMTP_HOST ({smtp_host}) and SMTP_PORT ({smtp_port})")
+        return False
     except Exception as e:
-        print(f"\n✗ Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"\n❌ Unexpected error: {e}")
+        return False
  
 if __name__ == "__main__":
-    main()
+    config = load_config()
+    # Sample email body for testing
+    email_body = "<h1>Test Email</h1><p>This is a test.</p>"
+    recipient_list = config.get('recipient_list', [])
+    subject = config.get('email_subject', 'Test Email')
+    if not recipient_list:
+        print("❌ No recipients configured in config.json")
+        sys.exit(1)
+    success = send_email(email_body, recipient_list, subject)
+    sys.exit(0 if success else 1)
