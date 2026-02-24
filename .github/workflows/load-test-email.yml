@@ -58,14 +58,14 @@ jobs:
           ls -la output/
       - name: Create environment file
         env:
-          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
         run: |
           mkdir -p config
           cat > config/.env << EOF
-          SMTP_SERVER=$SMTP_SERVER
+          SMTP_HOST=$SMTP_HOST
           SMTP_PORT=$SMTP_PORT
           SENDER_EMAIL=$SENDER_EMAIL
           SENDER_PASSWORD=$SENDER_PASSWORD
