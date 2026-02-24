@@ -1,0 +1,11 @@
+{
+  "recipient_list": [
+    "mnellutla@deloitte.com",
+    "tandmounika@deloitte.com",
+    "byasodakumar@deloitte.com"
+  ],
+  "email_subject": "Load Test Summary Report",
+  "smtp_host": "email-smtp.us-gov-east-1.amazonaws.com",
+  "smtp_port": 587,
+  "sender_name": "Load Test Bot"
+}
